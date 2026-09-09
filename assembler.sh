@@ -43,9 +43,9 @@ if [[ "$line1" != "0" && "$line1" != "2" ]]; then
     exit 1
 fi
 
-# --- Step 3: Handle n_values == 0 case ---
-
 bin_filename="${filename%.vsc}.bin"
+
+# --- Step 3: Handle n_values == 0 case ---
 
 if [[ "$line1" == "0" ]]; then
     if [[ ${#lines[@]} -ne 2 ]]; then
@@ -61,15 +61,14 @@ if [[ "$line1" == "0" ]]; then
     fi
 
     printf '\x20\x00' > "$bin_filename"
-
     echo "Assembly successful. Generated $bin_filename"
     exit 0
 fi
 
-
 # --- Step 4: Handle n_values == 2 case (static values) ---
 
 dataArray=()
+next_line_index=1
 
 if [[ "$line1" == "2" ]]; then
     if [[ ${#lines[@]} -lt 3 ]]; then
@@ -93,7 +92,101 @@ if [[ "$line1" == "2" ]]; then
         dataArray+=("$val")
     done
 
-    echo "Static values validated: ${dataArray[0]}, ${dataArray[1]}"
+    next_line_index=3
 fi
 
-echo "Argument validation passed for: $filename"
+# --- Step 5: Instruction parsing loop ---
+
+instructionBytes=()
+instruction_count=0
+found_quit=0
+
+for ((idx=next_line_index; idx<${#lines[@]}; idx++)); do
+    ins_line="${lines[$idx]}"
+
+    # Skip trailing blank lines
+    if [[ -z "$ins_line" ]]; then
+        continue
+    fi
+
+    if [[ "$instruction_count" -ge 100 ]]; then
+        echo "Error: program exceeds maximum capacity of 100 instructions."
+        exit 1
+    fi
+
+    if [[ "${#ins_line}" -gt 11 ]]; then
+        echo "Error: instruction line '$ins_line' exceeds maximum length of 11 characters."
+        exit 1
+    fi
+
+    # Must have exactly 3 comma-separated fields
+    IFS=',' read -r ins reg mem extra <<< "$ins_line"
+
+    if [[ -z "$ins" || -z "$reg" || -z "$mem" || -n "$extra" ]]; then
+        echo "Error: instruction line '$ins_line' must have exactly 3 comma-separated fields."
+        exit 1
+    fi
+
+    case "$ins" in
+        LOAD)  opcode=1 ;;
+        STORE) opcode=2 ;;
+        ADD)   opcode=3 ;;
+        SUB)   opcode=4 ;;
+        QUIT)  opcode=8 ;;
+        PRINT) opcode=9 ;;
+        *)
+            echo "Error: unrecognised instruction '$ins' in line '$ins_line'."
+            exit 1
+            ;;
+    esac
+
+    if ! [[ "$reg" =~ ^[0-9]+$ ]] || [[ "$reg" -gt 3 ]]; then
+        echo "Error: register field '$reg' in line '$ins_line' must be an integer 0-3."
+        exit 1
+    fi
+
+    if ! [[ "$mem" =~ ^[0-9]+$ ]] || [[ "$mem" -gt 255 ]]; then
+        echo "Error: memory address '$mem' in line '$ins_line' must be an integer 0-255."
+        exit 1
+    fi
+
+    if [[ "$ins" == "QUIT" ]] && { [[ "$reg" -ne 0 ]] || [[ "$mem" -ne 0 ]]; }; then
+        echo "Error: QUIT instruction in line '$ins_line' must be exactly QUIT,0,0."
+        exit 1
+    fi
+
+    if [[ "$ins" == "PRINT" ]] && [[ "$mem" -ne 0 ]]; then
+        echo "Error: PRINT instruction in line '$ins_line' must have memory address 0."
+        exit 1
+    fi
+
+    byte1=$(( (opcode << 2) | reg ))
+    byte2=$mem
+
+    instructionBytes+=("$byte1")
+    instructionBytes+=("$byte2")
+
+    instruction_count=$((instruction_count+1))
+
+    if [[ "$ins" == "QUIT" ]]; then
+        found_quit=1
+        break
+    fi
+done
+
+if [[ "$found_quit" -eq 0 ]]; then
+    echo "Error: program does not contain a terminating QUIT instruction."
+    exit 1
+fi
+
+# --- Write output: static values first, then instructions ---
+
+> "$bin_filename"
+for b in "${dataArray[@]}"; do
+    printf "$(printf '\\x%02x' "$b")" >> "$bin_filename"
+done
+for b in "${instructionBytes[@]}"; do
+    printf "$(printf '\\x%02x' "$b")" >> "$bin_filename"
+done
+
+echo "Assembly successful. Generated $bin_filename"
