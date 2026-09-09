@@ -66,4 +66,34 @@ if [[ "$line1" == "0" ]]; then
     exit 0
 fi
 
+
+# --- Step 4: Handle n_values == 2 case (static values) ---
+
+dataArray=()
+
+if [[ "$line1" == "2" ]]; then
+    if [[ ${#lines[@]} -lt 3 ]]; then
+        echo "Error: when n_values is 2, the file must contain at least 3 lines (n_values, value1, value2)."
+        exit 1
+    fi
+
+    for i in 1 2; do
+        val="${lines[$i]}"
+
+        if ! [[ "$val" =~ ^[0-9]+$ ]]; then
+            echo "Error: static value on line $((i+1)) ('$val') is not a valid non-negative integer."
+            exit 1
+        fi
+
+        if [[ "$val" -ge 128 ]]; then
+            echo "Error: static value on line $((i+1)) ('$val') must be in range [0, 128)."
+            exit 1
+        fi
+
+        dataArray+=("$val")
+    done
+
+    echo "Static values validated: ${dataArray[0]}, ${dataArray[1]}"
+fi
+
 echo "Argument validation passed for: $filename"
