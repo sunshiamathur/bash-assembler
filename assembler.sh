@@ -26,7 +26,10 @@ if [[ ! -s "$filename" ]]; then
     exit 1
 fi
 
-mapfile -t lines < "$filename"
+lines=()
+while IFS= read -r line || [[ -n "$line" ]]; do
+    lines+=("$line")
+done < "$filename"
 
 if [[ ${#lines[@]} -eq 0 ]]; then
     echo "Warning: input file '$filename' contains no lines. No .bin file will be produced."
@@ -40,5 +43,27 @@ if [[ "$line1" != "0" && "$line1" != "2" ]]; then
     exit 1
 fi
 
-echo "Line 1 validation passed: n_values = $line1"
+# --- Step 3: Handle n_values == 0 case ---
+
+bin_filename="${filename%.vsc}.bin"
+
+if [[ "$line1" == "0" ]]; then
+    if [[ ${#lines[@]} -ne 2 ]]; then
+        echo "Error: when n_values is 0, the file must contain exactly 2 lines."
+        exit 1
+    fi
+
+    line2="${lines[1]}"
+
+    if [[ "$line2" != "QUIT,0,0" ]]; then
+        echo "Error: when n_values is 0, Line 2 must be exactly 'QUIT,0,0'."
+        exit 1
+    fi
+
+    printf '\x20\x00' > "$bin_filename"
+
+    echo "Assembly successful. Generated $bin_filename"
+    exit 0
+fi
+
 echo "Argument validation passed for: $filename"
