@@ -23,7 +23,7 @@ if [[ "$filename" != *.vsc ]]; then
 fi
 
 if [[ ! -s "$filename" ]]; then
-    echo "usage: the file is empty – no .bin file is produced"
+    echo "usage: the file is empty - no .bin file is produced"
     exit 1
 fi
 
@@ -34,7 +34,7 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done < "$filename"
 
 if [[ ${#lines[@]} -eq 0 ]]; then
-    echo "usage: the file is empty – no .bin file is produced"
+    echo "usage: the file is empty - no .bin file is produced"
     exit 1
 fi
 

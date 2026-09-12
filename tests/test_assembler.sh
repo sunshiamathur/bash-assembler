@@ -101,7 +101,7 @@ assert_exact "rubric_4_wrong_extension" 1 \
     "$ASSEMBLER" "$TMP_DIR/a.vs"
 
 assert_exact "rubric_5_empty_file" 1 \
-    "usage: the file is empty – no .bin file is produced" \
+    "usage: the file is empty - no .bin file is produced" \
     "$ASSEMBLER" "$FIXTURES/empty.vsc"
 
 cp "$FIXTURES/quit.vsc" "$TMP_DIR/quit.vsc"
