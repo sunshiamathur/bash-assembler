@@ -1,38 +1,40 @@
 #!/bin/bash
 
-# --- Step 1: Argument validation ---
+if [[ $# -eq 0 ]]; then
+    echo "usage: no argument is provided"
+    exit 1
+fi
 
-if [[ $# -ne 1 ]]; then
-    echo "Error: exactly one argument required. Usage: bash assembler.sh <filename.vsc>"
+if [[ $# -gt 1 ]]; then
+    echo "usage: more than one arguments are provided"
     exit 1
 fi
 
 filename="$1"
 
 if [[ ! -f "$filename" ]]; then
-    echo "Error: file '$filename' does not exist."
+    echo "usage: input is not a file or it does not exist"
     exit 1
 fi
 
 if [[ "$filename" != *.vsc ]]; then
-    echo "Error: file must have a .vsc extension."
+    echo "usage: input does not have the extension .vsc"
     exit 1
 fi
 
-# --- Step 2: File structure validation ---
-
 if [[ ! -s "$filename" ]]; then
-    echo "Warning: input file '$filename' is empty. No .bin file will be produced."
+    echo "usage: the file is empty – no .bin file is produced"
     exit 1
 fi
 
 lines=()
 while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
     lines+=("$line")
 done < "$filename"
 
 if [[ ${#lines[@]} -eq 0 ]]; then
-    echo "Warning: input file '$filename' contains no lines. No .bin file will be produced."
+    echo "usage: the file is empty – no .bin file is produced"
     exit 1
 fi
 
@@ -44,8 +46,6 @@ if [[ "$line1" != "0" && "$line1" != "2" ]]; then
 fi
 
 bin_filename="${filename%.vsc}.bin"
-
-# --- Step 3: Handle n_values == 0 case ---
 
 if [[ "$line1" == "0" ]]; then
     if [[ ${#lines[@]} -ne 2 ]]; then
@@ -61,53 +61,44 @@ if [[ "$line1" == "0" ]]; then
     fi
 
     printf '\x20\x00' > "$bin_filename"
-    echo "Assembly successful. Generated $bin_filename"
+
+    echo "It is a QUIT program"
+    echo "The content of the .bin file is"
+    printf '%02x\n' 32 0
     exit 0
 fi
 
-# --- Step 4: Handle n_values == 2 case (static values) ---
-
 dataArray=()
-next_line_index=1
 
-if [[ "$line1" == "2" ]]; then
-    if [[ ${#lines[@]} -lt 3 ]]; then
-        echo "Error: when n_values is 2, the file must contain at least 3 lines (n_values, value1, value2)."
+if [[ ${#lines[@]} -lt 3 ]]; then
+    echo "Error: when n_values is 2, the file must contain at least 3 lines (n_values, value1, value2)."
+    exit 1
+fi
+
+for i in 1 2; do
+    val="${lines[$i]}"
+
+    if ! [[ "$val" =~ ^[0-9]+$ ]]; then
+        echo "Error: static value on line $((i+1)) ('$val') is not a valid non-negative integer."
         exit 1
     fi
 
-    for i in 1 2; do
-        val="${lines[$i]}"
+    if [[ "$val" -ge 128 ]]; then
+        echo "Error: static value on line $((i+1)) ('$val') must be in range [0, 128)."
+        exit 1
+    fi
 
-        if ! [[ "$val" =~ ^[0-9]+$ ]]; then
-            echo "Error: static value on line $((i+1)) ('$val') is not a valid non-negative integer."
-            exit 1
-        fi
-
-        if [[ "$val" -ge 128 ]]; then
-            echo "Error: static value on line $((i+1)) ('$val') must be in range [0, 128)."
-            exit 1
-        fi
-
-        dataArray+=("$val")
-    done
-
-    next_line_index=3
-fi
-
-# --- Step 5: Instruction parsing loop ---
+    dataArray+=("$val")
+done
 
 instructionBytes=()
 instruction_count=0
 found_quit=0
 
-for ((idx=next_line_index; idx<${#lines[@]}; idx++)); do
+for ((idx=3; idx<${#lines[@]}; idx++)); do
     ins_line="${lines[$idx]}"
 
-    # Skip trailing blank lines
-    if [[ -z "$ins_line" ]]; then
-        continue
-    fi
+    [[ -z "$ins_line" ]] && continue
 
     if [[ "$instruction_count" -ge 100 ]]; then
         echo "Error: program exceeds maximum capacity of 100 instructions."
@@ -119,7 +110,6 @@ for ((idx=next_line_index; idx<${#lines[@]}; idx++)); do
         exit 1
     fi
 
-    # Must have exactly 3 comma-separated fields
     IFS=',' read -r ins reg mem extra <<< "$ins_line"
 
     if [[ -z "$ins" || -z "$reg" || -z "$mem" || -n "$extra" ]]; then
@@ -179,14 +169,16 @@ if [[ "$found_quit" -eq 0 ]]; then
     exit 1
 fi
 
-# --- Write output: static values first, then instructions ---
+allBytes=("${dataArray[@]}" "${instructionBytes[@]}")
 
 > "$bin_filename"
-for b in "${dataArray[@]}"; do
-    printf "$(printf '\\x%02x' "$b")" >> "$bin_filename"
-done
-for b in "${instructionBytes[@]}"; do
+for b in "${allBytes[@]}"; do
     printf "$(printf '\\x%02x' "$b")" >> "$bin_filename"
 done
 
-echo "Assembly successful. Generated $bin_filename"
+echo "It is an ADD/SUB program"
+echo "The content of the .bin file is"
+for b in "${allBytes[@]}"; do
+    printf '%02x\n' "$b"
+done
+exit 0
