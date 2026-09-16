@@ -150,7 +150,7 @@ run_test "print_bad_mem" $'2\n20\n40\nPRINT,0,5\nQUIT,0,0\n' 1 "must have memory
 run_test "quit_bad_reg" $'2\n20\n40\nQUIT,1,0\n' 1 "must be exactly QUIT,0,0"
 run_test "too_few_fields" $'2\n20\n40\nLOAD,0\nQUIT,0,0\n' 1 "exactly 3 comma-separated fields"
 run_test "too_many_fields" $'2\n20\n40\nLOAD,0,0,5\nQUIT,0,0\n' 1 "exactly 3 comma-separated fields"
-
+run_test "blank_line_before_quit" $'2\n20\n40\nLOAD,0,0\n\nQUIT,0,0\n' 1 "exactly 3 comma-separated fields"
 echo ""
 echo "===================="
 echo "Passed: $PASS   Failed: $FAIL"

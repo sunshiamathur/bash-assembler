@@ -98,8 +98,6 @@ found_quit=0
 for ((idx=3; idx<${#lines[@]}; idx++)); do
     ins_line="${lines[$idx]}"
 
-    [[ -z "$ins_line" ]] && continue
-
     if [[ "$instruction_count" -ge 100 ]]; then
         echo "Error: program exceeds maximum capacity of 100 instructions."
         exit 1
