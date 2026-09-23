@@ -37,7 +37,7 @@ fi
 
 # -s is true only if the file exists AND has size > 0.
 if [[ ! -s "$filename" ]]; then
-    echo "usage: the file is empty - no .bin file is produced"
+    echo "usage: the file is empty – no .bin file is produced"
     exit 1
 fi
 
@@ -55,7 +55,7 @@ done < "$filename"
 # Defensive backstop; the -s check above already rules out a true
 # zero-byte file.
 if [[ ${#lines[@]} -eq 0 ]]; then
-    echo "usage: the file is empty - no .bin file is produced"
+    echo "usage: the file is empty – no .bin file is produced"
     exit 1
 fi
 
